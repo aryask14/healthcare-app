@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1976d2" />
+  <meta name="description" content="Healthcare Appointment System - Book doctor appointments and manage prescriptions" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  
+  <!-- Favicon (Generated from https://favicon.io) -->
+  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+  
+  <!-- Fonts (Material Icons + Roboto) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  
+  <title>HealthCare+ | Doctor Appointment System</title>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="%PUBLIC_URL%/static/js/main.chunk.js" as="script">
+  <link rel="preload" href="%PUBLIC_URL%/static/css/main.chunk.css" as="style">
+  
+  <!-- iOS PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+</head>
+<body>
+  <noscript>
+    <div style="text-align: center; margin-top: 50px;">
+      <h1>JavaScript is required to run this application</h1>
+      <p>Please enable JavaScript in your browser settings to continue.</p>
+      <p>
+        <a href="https://enable-javascript.com/" target="_blank" rel="noopener noreferrer">
+          How to enable JavaScript
+        </a>
+      </p>
+    </div>
+  </noscript>
+  <div id="root"></div>
+  
+  <!-- Load polyfills for older browsers -->
+  <script>
+    if (!window.Promise) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"><\/script>');
+    }
+    if (!window.fetch) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"><\/script>');
+    }
+  </script>
+</body>
+</html>
