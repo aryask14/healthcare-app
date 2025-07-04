@@ -18,20 +18,19 @@ import {
 } from '@mui/material';
 import {
   CalendarToday,
-  Person,
   LocalHospital,
   AccessTime,
   Cancel,
   Edit
 } from '@mui/icons-material';
 import { getUpcomingAppointments } from '../../features/appointments/appointmentSlice';
-import { format, parseISO, isAfter } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 const UpcomingAppointments = () => {
   const dispatch = useDispatch();
   const { 
-    upcomingAppointments, 
-    isLoading, 
+    upcomingAppointments = [], 
+    loading, 
     isError, 
     message 
   } = useSelector((state) => state.appointments);
@@ -40,7 +39,7 @@ const UpcomingAppointments = () => {
     dispatch(getUpcomingAppointments());
   }, [dispatch]);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={4}>
         <CircularProgress size={60} />
@@ -56,7 +55,7 @@ const UpcomingAppointments = () => {
     );
   }
 
-  if (upcomingAppointments.length === 0) {
+  if (!upcomingAppointments || upcomingAppointments.length === 0) {
     return (
       <Box textAlign="center" py={4}>
         <CalendarToday sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />

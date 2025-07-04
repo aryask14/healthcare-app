@@ -13,8 +13,21 @@ export const getPastAppointments = createAsyncThunk(
   }
 );
 
+export const getUpcomingAppointments = createAsyncThunk(
+  'appointments/getUpcomingAppointments',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.getUpcomingAppointments();
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to fetch upcoming appointments');
+    }
+  }
+);
+
 const initialState = {
   pastAppointments: [],
+  upcomingAppointments: [],
   loading: false,
   isError: false,
   message: '',
@@ -33,6 +46,7 @@ const appointmentSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Past Appointments
       .addCase(getPastAppointments.pending, (state) => {
         state.loading = true;
         state.isError = false;
@@ -49,6 +63,25 @@ const appointmentSlice = createSlice({
         state.isError = true;
         state.message = action.payload || 'An error occurred';
         state.pastAppointments = [];
+        state.status = 'failed';
+      })
+      // Upcoming Appointments
+      .addCase(getUpcomingAppointments.pending, (state) => {
+        state.loading = true;
+        state.isError = false;
+        state.status = 'loading';
+      })
+      .addCase(getUpcomingAppointments.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isError = false;
+        state.upcomingAppointments = action.payload;
+        state.status = 'succeeded';
+      })
+      .addCase(getUpcomingAppointments.rejected, (state, action) => {
+        state.loading = false;
+        state.isError = true;
+        state.message = action.payload || 'An error occurred';
+        state.upcomingAppointments = [];
         state.status = 'failed';
       });
   }

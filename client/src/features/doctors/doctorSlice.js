@@ -1,42 +1,55 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/doctorApi';
 
-export const fetchDoctors = createAsyncThunk(
-  'doctors/fetchDoctors',
+export const getDoctors = createAsyncThunk(
+  'doctors/getDoctors',
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.getDoctors();
       return response.data;
     } catch (err) {
-      return rejectWithValue(err.response.data);
+      return rejectWithValue(err.response?.data || 'Failed to fetch doctors');
     }
   }
 );
 
 const initialState = {
   doctors: [],
-  status: 'idle',
-  error: null
+  status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
+  error: null,
+  lastFetched: null
 };
 
 const doctorSlice = createSlice({
   name: 'doctors',
   initialState,
-  reducers: {},
+  reducers: {
+    resetDoctorsState: (state) => {
+      state.status = 'idle';
+      state.error = null;
+    },
+    // Optional: Add a reducer to manually add a doctor
+    addDoctor: (state, action) => {
+      state.doctors.push(action.payload);
+    }
+  },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchDoctors.pending, (state) => {
+      .addCase(getDoctors.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
-      .addCase(fetchDoctors.fulfilled, (state, action) => {
+      .addCase(getDoctors.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.doctors = action.payload;
+        state.lastFetched = new Date().toISOString();
       })
-      .addCase(fetchDoctors.rejected, (state, action) => {
+      .addCase(getDoctors.rejected, (state, action) => {
         state.status = 'failed';
-        state.error = action.payload?.message || 'Failed to fetch doctors';
+        state.error = action.payload?.message || action.payload || 'Failed to fetch doctors';
       });
   }
 });
 
+export const { resetDoctorsState, addDoctor } = doctorSlice.actions;
 export default doctorSlice.reducer;

@@ -14,7 +14,8 @@ import {
   Pagination,
   CircularProgress,
   Chip,
-  Avatar
+  Avatar,
+  Alert
 } from '@mui/material';
 import {
   MedicalServices,
@@ -29,7 +30,12 @@ import { useNavigate } from 'react-router-dom';
 const DoctorList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { doctors, isLoading, isError, message } = useSelector((state) => state.doctors);
+  const { 
+    doctors = { data: [], pagination: null }, 
+    status, 
+    error 
+  } = useSelector((state) => state.doctors);
+  
   const [filters, setFilters] = useState({
     specialization: '',
     search: '',
@@ -62,7 +68,7 @@ const DoctorList = () => {
     navigate(`/doctors/${doctorId}/book`);
   };
 
-  if (isLoading) {
+  if (status === 'loading') {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
         <CircularProgress size={60} />
@@ -70,13 +76,11 @@ const DoctorList = () => {
     );
   }
 
-  if (isError) {
+  if (status === 'failed') {
     return (
-      <Box display="flex" justifyContent="center" mt={4}>
-        <Typography color="error" variant="h6">
-          {message || 'Failed to load doctors'}
-        </Typography>
-      </Box>
+      <Alert severity="error" sx={{ m: 3 }}>
+        {error || 'Failed to load doctors'}
+      </Alert>
     );
   }
 
@@ -124,16 +128,26 @@ const DoctorList = () => {
       </Box>
 
       {/* Doctors Grid */}
-      {doctors?.data?.length > 0 ? (
+      {doctors.data?.length > 0 ? (
         <>
           <Grid container spacing={3}>
             {doctors.data.map((doctor) => (
               <Grid item xs={12} sm={6} md={4} key={doctor._id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Card sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  transition: 'transform 0.3s',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                    boxShadow: 6
+                  }
+                }}>
                   <CardMedia
                     sx={{ height: 200 }}
                     image={doctor.photo || '/default-doctor.jpg'}
                     title={doctor.name}
+                    component="img"
                   />
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Typography gutterBottom variant="h5" component="h2">
@@ -157,7 +171,7 @@ const DoctorList = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Star color="warning" sx={{ mr: 1 }} />
                       <Typography variant="body1">
-                        4.8 (120 reviews)
+                        {doctor.rating?.toFixed(1) || '4.8'} ({doctor.reviews || 120} reviews)
                       </Typography>
                     </Box>
 
@@ -178,8 +192,9 @@ const DoctorList = () => {
                       variant="contained"
                       startIcon={<MedicalServices />}
                       onClick={() => handleBookAppointment(doctor._id)}
+                      disabled={!doctor.available}
                     >
-                      Book Appointment
+                      {doctor.available ? 'Book Appointment' : 'Not Available'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -196,6 +211,8 @@ const DoctorList = () => {
                 onChange={handlePageChange}
                 color="primary"
                 shape="rounded"
+                showFirstButton
+                showLastButton
               />
             </Box>
           )}
@@ -204,7 +221,9 @@ const DoctorList = () => {
         <Box textAlign="center" mt={4}>
           <MedicalServices sx={{ fontSize: 60, color: 'text.disabled' }} />
           <Typography variant="h6" color="text.secondary">
-            No doctors found matching your criteria
+            {status === 'succeeded' 
+              ? 'No doctors found matching your criteria' 
+              : 'Loading doctors...'}
           </Typography>
         </Box>
       )}

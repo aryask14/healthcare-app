@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { Box } from '@mui/material';
-import store from './store';
+import { store } from './store';
 import './App.css';
 
 // Components
@@ -26,16 +26,15 @@ function App() {
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'column', 
-          minHeight: '100vh' 
+          minHeight: '100vh',
+          backgroundColor: 'background.default'
         }}>
-          {/* Header/Navbar */}
           <Navbar />
           
-          {/* Main Content Area */}
           <Box component="main" sx={{ 
             flexGrow: 1,
-            py: 3, // Add padding top and bottom
-            px: { xs: 2, sm: 3 } // Responsive padding
+            py: 3,
+            px: { xs: 2, sm: 3 }
           }}>
             <Routes>
               <Route path="/" element={<HomePage />} />
@@ -43,26 +42,15 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/doctors" element={<DoctorsPage />} />
               <Route path="/pharmacy" element={<PharmacyPage />} />
-              <Route 
-                path="/appointments" 
-                element={
-                  <PrivateRoute>
-                    <AppointmentsPage />
-                  </PrivateRoute>
-                } 
-              />
-              <Route 
-                path="/dashboard" 
-                element={
-                  <PrivateRoute>
-                    <DashboardPage />
-                  </PrivateRoute>
-                } 
-              />
+              
+              {/* Private Routes */}
+              <Route element={<PrivateRoute />}>
+                <Route path="/appointments" element={<AppointmentsPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+              </Route>
             </Routes>
           </Box>
           
-          {/* Footer */}
           <Footer />
         </Box>
       </Router>

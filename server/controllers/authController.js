@@ -3,33 +3,44 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
+const { validationResult } = require('express-validator');
+const ErrorResponse = require('../utils/ErrorResponse');
+
+// Generate JWT Token
+const generateToken = (user) => {
+  return jwt.sign(
+    { 
+      id: user._id, 
+      role: user.role,
+      name: user.name,
+      email: user.email
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || '30d' }
+  );
+};
 
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new ErrorResponse('Validation Error', 400, errors.array()));
+  }
+
   try {
     const { name, email, password, role, phone } = req.body;
 
-    // Validate input
-    if (!name || !email || !password || !phone) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Please include all required fields' 
-      });
-    }
-
     // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'User already exists' 
-      });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return next(new ErrorResponse('User already exists', 400));
     }
 
     // Create user
-    user = new User({
+    const user = await User.create({
       name,
       email,
       password,
@@ -37,107 +48,61 @@ exports.register = async (req, res) => {
       phone
     });
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-
-    await user.save();
-
     // Generate token
     const token = generateToken(user);
 
-    // Send welcome email
-    await sendEmail({
+    // Send welcome email (async - don't await)
+    sendEmail({
       email: user.email,
       subject: 'Welcome to Healthcare App',
       html: `
         <h1>Welcome ${user.name}!</h1>
         <p>Your account has been successfully created as a ${user.role}.</p>
-        <p>Start managing your health with us today.</p>
       `
-    });
+    }).catch(err => console.error('Email send error:', err));
 
-    res.status(201).json({
-      success: true,
-      token,
-      data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    sendTokenResponse(user, 201, res);
 
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : null
-    });
+    next(err);
   }
 };
 
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
+    // Validate email and password
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Please provide email and password' 
-      });
+      return next(new ErrorResponse('Please provide email and password', 400));
     }
 
     // Check for user
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        msg: 'Invalid credentials' 
-      });
+      return next(new ErrorResponse('Invalid credentials', 401));
     }
 
     // Check password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ 
-        success: false, 
-        msg: 'Invalid credentials' 
-      });
+      return next(new ErrorResponse('Invalid credentials', 401));
     }
 
-    // Generate token
-    const token = generateToken(user);
-
-    res.status(200).json({
-      success: true,
-      token,
-      data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    sendTokenResponse(user, 200, res);
 
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error' 
-    });
+    next(err);
   }
 };
 
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
-exports.getMe = async (req, res) => {
+exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     res.status(200).json({
@@ -145,57 +110,39 @@ exports.getMe = async (req, res) => {
       data: user
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error' 
-    });
+    next(err);
   }
 };
 
 // @desc    Forgot password
 // @route   POST /api/auth/forgotpassword
 // @access  Public
-exports.forgotPassword = async (req, res) => {
+exports.forgotPassword = async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const user = await User.findOne({ email: req.body.email });
 
-    // Find user
-    const user = await User.findOne({ email });
     if (!user) {
       // Security: Don't reveal if user doesn't exist
       return res.status(200).json({ 
         success: true, 
-        msg: 'If an account exists, a reset email has been sent' 
+        message: 'If an account exists, a reset email has been sent' 
       });
     }
 
     // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    
-    // Hash token and set expiry (1 hour)
-    user.resetPasswordToken = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
-    user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
-    
-    await user.save();
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
 
     // Create reset URL
-    const resetUrl = `${req.protocol}://${req.get('host')}/resetpassword/${resetToken}`;
+    const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/resetpassword/${resetToken}`;
 
-    // Email message
     const message = `
       <h2>Password Reset Request</h2>
-      <p>You requested a password reset for your HealthCare+ account.</p>
       <p>Click this link to reset your password:</p>
-      <a href="${resetUrl}" target="_blank">${resetUrl}</a>
-      <p><strong>This link expires in 1 hour.</strong></p>
-      <p>If you didn't request this, please ignore this email.</p>
+      <a href="${resetUrl}">${resetUrl}</a>
+      <p><strong>This link expires in 10 minutes.</strong></p>
     `;
 
-    // Send email
     try {
       await sendEmail({
         email: user.email,
@@ -203,34 +150,24 @@ exports.forgotPassword = async (req, res) => {
         html: message
       });
 
-      res.status(200).json({ 
-        success: true, 
-        msg: 'Password reset email sent' 
-      });
+      res.status(200).json({ success: true, message: 'Email sent' });
     } catch (err) {
       // Reset token if email fails
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
-      await user.save();
+      await user.save({ validateBeforeSave: false });
 
-      return res.status(500).json({ 
-        success: false, 
-        msg: 'Email could not be sent' 
-      });
+      return next(new ErrorResponse('Email could not be sent', 500));
     }
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error' 
-    });
+    next(err);
   }
 };
 
 // @desc    Reset password
 // @route   PUT /api/auth/resetpassword/:resettoken
 // @access  Public
-exports.resetPassword = async (req, res) => {
+exports.resetPassword = async (req, res, next) => {
   try {
     // Get hashed token
     const resetPasswordToken = crypto
@@ -244,43 +181,63 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Invalid or expired token' 
-      });
+      return next(new ErrorResponse('Invalid or expired token', 400));
     }
 
     // Set new password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(req.body.password, salt);
+    user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
-
     await user.save();
 
-    // Generate new token
-    const token = generateToken(user);
-
-    res.status(200).json({
-      success: true,
-      token,
-      msg: 'Password reset successful'
-    });
-
+    sendTokenResponse(user, 200, res);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ 
-      success: false, 
-      msg: 'Server error' 
-    });
+    next(err);
   }
 };
 
-// Generate JWT Token
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '5d' }
-  );
+// @desc    Logout user
+// @route   GET /api/auth/logout
+// @access  Private
+exports.logout = async (req, res, next) => {
+  try {
+    res.cookie('token', 'none', {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Helper to send token response
+const sendTokenResponse = (user, statusCode, res) => {
+  const token = generateToken(user);
+
+  const options = {
+    expires: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production'
+  };
+
+  res
+    .status(statusCode)
+    .cookie('token', token, options)
+    .json({
+      success: true,
+      token,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
 };

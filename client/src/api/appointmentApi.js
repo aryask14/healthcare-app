@@ -49,4 +49,5 @@ const appointmentService = {
   updateAppointmentStatus,
 };
 
+
 export default appointmentService;
