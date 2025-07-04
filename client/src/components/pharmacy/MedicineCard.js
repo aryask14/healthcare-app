@@ -1,7 +1,6 @@
 import React from 'react';
 import { FaPills, FaShoppingCart } from 'react-icons/fa';
 import './MedicineCard.css';
-
 const MedicineCard = ({ medicine }) => {
   return (
     <div className="medicine-card">

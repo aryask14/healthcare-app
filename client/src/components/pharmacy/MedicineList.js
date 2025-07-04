@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMedicines } from '../../features/pharmacy/medicineSlice';
+import { fetchMedicines } from '../../features/pharmacy/medicineSlice';
 import MedicineCard from './MedicineCard';
 import Spinner from '../common/Spinner';
 import './MedicineList.css';
@@ -10,7 +10,7 @@ const MedicineList = () => {
   const { medicines, isLoading } = useSelector((state) => state.medicines);
 
   useEffect(() => {
-    dispatch(getMedicines());
+    dispatch(fetchMedicines());
   }, [dispatch]);
 
   if (isLoading) {
